@@ -1,0 +1,6 @@
+/target
+/migrations
+db.sqlite
+diesel.toml
+.env
+Cargo.lock

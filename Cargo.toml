@@ -1,0 +1,10 @@
+[package]
+name = "discord-status-monitor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serenity = "0.12"
+dotenv = "*"
+tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }
+diesel = { version = "2.2.0", features = ["sqlite"] }
