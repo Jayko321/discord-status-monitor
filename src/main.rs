@@ -66,6 +66,7 @@ impl EventHandler for Handler {
         if let Interaction::Command(command) = interaction {
             let content = match command.data.name.as_str() {
                 "check" => Some(commands::check::run(&command.data.options())),
+                "filter" => Some(commands::filter::run(&command.data.options())),
                 _ => Some("No command".to_string()),
             };
 
@@ -86,7 +87,10 @@ impl EventHandler for Handler {
         let guild_id = GuildId::new(754762976371802203);
 
         _ = guild_id
-            .set_commands(&ctx.http, vec![commands::check::register()])
+            .set_commands(
+                &ctx.http,
+                vec![commands::check::register(), commands::filter::register()],
+            )
             .await;
         // _ = Command::create_global_command(&ctx.http, commands::check::register()).await;
     }
