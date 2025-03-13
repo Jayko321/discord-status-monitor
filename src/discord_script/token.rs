@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenKind {
-    Null,
     True,
     False,
     Number,
@@ -18,10 +17,10 @@ pub enum TokenKind {
     CloseParen,
 
     // Equivilance
-    Assignment,
     Equals,
     NotEquals,
     Not,
+    Assignment,
 
     // Conditional
     Less,

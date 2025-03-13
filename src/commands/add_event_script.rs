@@ -69,7 +69,12 @@ pub fn run(options: &[ResolvedOption]) -> String {
 
     if !script.is_empty() {
         let tokens = Lexer::tokenize(script);
-        res_string = format!("Tokens: {:?}", tokens);
+        if let Ok(tokens) = tokens {
+            let token_str = tokens.iter().map(|x| format!("{x}")).collect::<Vec<String>>().join("\n");
+            res_string = format!("Tokens: {token_str}");
+        } else {
+            res_string = format!("Error: {:?}", tokens);
+        }
     }
 
     return res_string;
