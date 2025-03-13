@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod schema;
 pub mod storage;
+pub mod discord_script;
 
 use dotenv::dotenv;
 use serenity::all::CreateInteractionResponse;
@@ -18,6 +19,7 @@ use std::time::UNIX_EPOCH;
 
 use self::storage::*;
 
+
 struct Handler;
 
 #[async_trait]
@@ -33,16 +35,7 @@ impl EventHandler for Handler {
 
                 let mut activity_str: String = "".to_string();
                 for activity in activities {
-                    println!("activities: {}", activity.name);
                     activity_str = activity.name;
-                }
-                println!("status: {}", changed);
-                println!("user id: {}", presence.user.id);
-                println!("{}", member.user.name);
-
-                //Doesn't work, or rather works only for some not for everyone
-                if let Some(nickname) = guild.member(_ctx, presence.user.id).await.unwrap().nick {
-                    println!("server nickname: {}", nickname);
                 }
 
                 let unix_time = SystemTime::now()
@@ -67,6 +60,8 @@ impl EventHandler for Handler {
             let content = match command.data.name.as_str() {
                 "check" => Some(commands::check::run(&command.data.options())),
                 "filter" => Some(commands::filter::run(&command.data.options())),
+                "whoplayed" => Some(commands::whoplayed::run(&command.data.options())),
+                "add_event_script" => Some(commands::add_event_script::run(&command.data.options())),
                 _ => Some("No command".to_string()),
             };
 
@@ -89,7 +84,12 @@ impl EventHandler for Handler {
         _ = guild_id
             .set_commands(
                 &ctx.http,
-                vec![commands::check::register(), commands::filter::register()],
+                vec![
+                    commands::check::register(),
+                    commands::filter::register(),
+                    commands::whoplayed::register(),
+                    commands::add_event_script::register(),
+                ],
             )
             .await;
         // _ = Command::create_global_command(&ctx.http, commands::check::register()).await;
