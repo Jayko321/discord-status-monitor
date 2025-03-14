@@ -4,7 +4,6 @@ use std::fmt::Display;
 pub enum TokenKind {
     Eof, 
 
-
     True,
     False,
     Number,
@@ -107,11 +106,13 @@ impl TokenKind {
 pub struct Token {
     pub kind: TokenKind,
     pub value: String,
+    pub line: usize,
+    pub pos: usize,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, value: String) -> Token {
-        Token { kind, value }
+    pub fn new(kind: TokenKind, value: String, line: usize, pos: usize) -> Token {
+        Token { kind, value, line, pos }
     }
 }
 

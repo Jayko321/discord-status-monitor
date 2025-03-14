@@ -11,15 +11,17 @@ pub struct Lexer {
     patterns: Vec<RegexPattern>,
 }
 
+pub type HandlerType = dyn Fn(&Regex, &String, usize, usize) -> (usize, Option<Token>);
+
 pub struct RegexPattern {
     regex: regex::Regex,
-    handler: Box<dyn Fn(&Regex, &String) -> (usize, Option<Token>)>,
+    handler: Box<HandlerType>,
 }
 
 impl RegexPattern {
     pub fn new(
         regex: Regex,
-        handler: Box<dyn Fn(&Regex, &String) -> (usize, Option<Token>)>,
+        handler: Box<HandlerType>,
     ) -> Self {
         RegexPattern { regex, handler }
     }
@@ -41,54 +43,54 @@ impl std::error::Error for TokenizerError {}
 fn default_handler(
     kind: TokenKind,
     value: &'static str,
-) -> Box<impl Fn(&Regex, &String) -> (usize, Option<Token>)> {
-    let res = move |_: &Regex, _: &String| -> (usize, Option<Token>) {
+) -> Box<HandlerType> {
+    let res = move |_: &Regex, _: &String, line: usize, pos: usize| -> (usize, Option<Token>) {
         return (
             value.len(),
-            Some(Token::new(kind.clone(), String::from(value))),
+            Some(Token::new(kind.clone(), String::from(value), line, pos)),
         );
     };
     Box::new(res)
 }
 
-fn skip_handler(regex: &Regex, remainder: &String) -> (usize, Option<Token>) {
+fn skip_handler(regex: &Regex, remainder: &String, _: usize, _: usize) -> (usize, Option<Token>) {
     if let Some(pat) = regex.find(remainder) {
         return (pat.end(), None);
     }
     (0, None)
 }
 
-fn string_handler(regex: &Regex, remainder: &String) -> (usize, Option<Token>) {
+fn string_handler(regex: &Regex, remainder: &String, line: usize, pos: usize) -> (usize, Option<Token>) {
     if let Some(pat) = regex.find(remainder) {
         let str_value = pat.as_str();
         return (
             str_value.len(),
-            Some(Token::new(TokenKind::String, str_value.to_string())),
+            Some(Token::new(TokenKind::String, str_value.to_string(), line, pos)),
         );
     }
     (0, None)
 }
 
-fn number_handler(regex: &Regex, remainder: &String) -> (usize, Option<Token>) {
+fn number_handler(regex: &Regex, remainder: &String, line: usize, pos: usize) -> (usize, Option<Token>) {
     if let Some(pat) = regex.find(remainder) {
         let num_value = pat.as_str();
         return (
             num_value.len(),
-            Some(Token::new(TokenKind::Number, String::from(num_value))),
+            Some(Token::new(TokenKind::Number, String::from(num_value), line, pos)),
         );
     }
     (0, None)
 }
 
-fn symbol_handler(regex: &Regex, remainder: &String) -> (usize, Option<Token>) {
+fn symbol_handler(regex: &Regex, remainder: &String, line: usize, pos: usize) -> (usize, Option<Token>) {
     if let Some(pat) = regex.find(remainder) {
         let value = pat.as_str();
         if let Some(keyword) = TokenKind::is_keyword(value) {
-            return (value.len(), Some(Token::new(keyword, value.to_string())));
+            return (value.len(), Some(Token::new(keyword, value.to_string(), line, pos)));
         } else {
             return (
                 value.len(),
-                Some(Token::new(TokenKind::Identifier, String::from(value))),
+                Some(Token::new(TokenKind::Identifier, String::from(value), line, pos)),
             );
         }
     }
@@ -179,7 +181,7 @@ impl Lexer {
             for pattern in &mut lexer.patterns {
                 if let Some(location) = pattern.regex.find(&remainder) {
                     if location.start() == 0 {
-                        (advance, token) = (pattern.handler)(&pattern.regex, &remainder);
+                        (advance, token) = (pattern.handler)(&pattern.regex, &remainder, lexer.pos, 0);
                         matched = true;
                         break;
                     }
@@ -197,7 +199,7 @@ impl Lexer {
             lexer.pos += advance;
         }
 
-        lexer.tokens.push(Token::new(TokenKind::Eof, "".to_string()));
+        lexer.tokens.push(Token::new(TokenKind::Eof, "".to_string(), lexer.pos, 0));
 
         Ok(lexer.tokens)
     }
