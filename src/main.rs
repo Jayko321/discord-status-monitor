@@ -56,6 +56,11 @@ impl EventHandler for Handler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::Command(command) = interaction {
+            let allowed_ids: Vec<u64> = vec!(976552221191835718, 363362909822124052);
+            if !allowed_ids.contains(&command.user.id.into()) {
+                return;
+            }
+
             let content = match command.data.name.as_str() {
                 "check" => Some(commands::check::run(&command.data.options())),
                 "filter" => Some(commands::filter::run(&command.data.options())),
@@ -63,6 +68,8 @@ impl EventHandler for Handler {
                 "add_event_script" => Some(commands::add_event_script::run(&command.data.options())),
                 _ => Some("No command".to_string()),
             };
+
+            
 
             if let Some(content) = content {
                 let data = CreateInteractionResponseMessage::new()
