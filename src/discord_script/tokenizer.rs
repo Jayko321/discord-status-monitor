@@ -197,6 +197,8 @@ impl Lexer {
             lexer.pos += advance;
         }
 
+        lexer.tokens.push(Token::new(TokenKind::Eof, "".to_string()));
+
         Ok(lexer.tokens)
     }
 }

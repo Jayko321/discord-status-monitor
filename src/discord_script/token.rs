@@ -1,7 +1,10 @@
 use std::fmt::Display;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum TokenKind {
+    Eof, 
+
+
     True,
     False,
     Number,
@@ -102,8 +105,8 @@ impl TokenKind {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Token {
-    kind: TokenKind,
-    value: String,
+    pub kind: TokenKind,
+    pub value: String,
 }
 
 impl Token {

@@ -1,3 +1,4 @@
+use crate::discord_script::parser::Parser;
 use crate::discord_script::tokenizer::*;
 use serenity::builder::{CreateCommand, CreateCommandOption};
 use serenity::model::application::{CommandOptionType, ResolvedOption, ResolvedValue};
@@ -68,13 +69,18 @@ pub fn run(options: &[ResolvedOption]) -> String {
     }
 
     if !script.is_empty() {
-        let tokens = Lexer::tokenize(script);
-        if let Ok(tokens) = tokens {
-            let token_str = tokens.iter().map(|x| format!("{x}")).collect::<Vec<String>>().join("\n");
-            res_string = format!("Tokens: {token_str}");
-        } else {
-            res_string = format!("Error: {:?}", tokens);
-        }
+        let tokens = Lexer::tokenize(script).unwrap();
+        let token_str = tokens.iter().map(|x| format!("{x}")).collect::<Vec<String>>().join("\n");
+        let ast = Parser::parse(tokens);
+        res_string = format!("Tokens: {token_str}");
+        res_string += format!("{ast:?}").as_str();
+        //println!("{ast:?}");
+        //if let Ok(tokens) = tokens {
+            //let token_str = tokens.iter().map(|x| format!("{x}")).collect::<Vec<String>>().join("\n");
+            //res_string = format!("Tokens: {token_str}");
+        //} else {
+            //res_string = format!("Error: {:?}", tokens);
+        //}
     }
 
     return res_string;
