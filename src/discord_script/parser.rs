@@ -12,7 +12,7 @@ pub enum BindingPower {
     Comma,
     Assignment,
     Logical,
-    Relational,
+    Comparison,
     Additive,
     Multiplicative,
     Unary,
@@ -28,6 +28,7 @@ pub enum ParserErrors {
     NextTokenNotFound,
     NumberIsNotANumber(Token),
     BindingPowerError,
+    UnexpectedTokenKind(Token),
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Hash)]
@@ -75,10 +76,14 @@ impl Parser {
         if *self
             .function_lookup_table
             .get(&kind)
-            .ok_or(ParserErrors::NoFunctionHandler(self.current_token().clone()))?
+            .ok_or(ParserErrors::NoFunctionHandler(
+                self.current_token().clone(),
+            ))?
             != HandlerTypes::NullDenotation
         {
-            return Err(ParserErrors::UnexpectedExpressionType(self.current_token().clone()));
+            return Err(ParserErrors::UnexpectedExpressionType(
+                self.current_token().clone(),
+            ));
         }
 
         let mut left = self.parse_primary_expression()?;
@@ -90,17 +95,20 @@ impl Parser {
             > power
         {
             kind = self.current_token().kind.clone();
-            let function_type = self
-                .function_lookup_table
-                .get(&kind)
-                .ok_or(ParserErrors::UnexpectedExpressionType(self.current_token().clone()))?;
+            let function_type = self.function_lookup_table.get(&kind).ok_or(
+                ParserErrors::UnexpectedExpressionType(self.current_token().clone()),
+            )?;
+
+            let new_power = self.binding_power_lookup.get(&self.current_token().kind).ok_or(ParserErrors::BindingPowerError)?;
 
             match function_type {
                 HandlerTypes::LeftDenotation => {
-                    left = self.parse_binary_expression(left, power.clone())?
+                    left = self.parse_binary_expression(left, new_power.clone())?
                 }
                 HandlerTypes::NullDenotation | HandlerTypes::Statement => {
-                    return Err(ParserErrors::UnexpectedExpressionType(self.current_token().clone()))
+                    return Err(ParserErrors::UnexpectedExpressionType(
+                        self.current_token().clone(),
+                    ))
                 }
             };
         }
@@ -157,37 +165,66 @@ impl Parser {
         res
     }
 
+    fn expect_token_and_skip(&mut self, kind: TokenKind) -> Result<(), ParserErrors> {
+        if kind != self.current_token().kind {
+            return Err(ParserErrors::UnexpectedTokenKind(self.current_token().clone()));
+        }
+        self.next_token();
+
+        return Ok(());
+    }
+
     pub(self) fn create_lookup_table(&mut self) {
         use super::token::TokenKind::*;
         use BindingPower::*;
+        use HandlerTypes::*;
+
         let mut add_new = |kind: TokenKind, power: BindingPower, h_type: HandlerTypes| {
             self.binding_power_lookup.insert(kind.clone(), power);
             self.function_lookup_table.insert(kind, h_type);
         };
-        add_new(Number, BindingPower::Primary, HandlerTypes::NullDenotation);
-        add_new(String, BindingPower::Primary, HandlerTypes::NullDenotation);
-        add_new(
-            Identifier,
-            BindingPower::Primary,
-            HandlerTypes::NullDenotation,
-        );
 
-        add_new(Plus, Additive, HandlerTypes::LeftDenotation);
-        add_new(Star, Multiplicative, HandlerTypes::LeftDenotation);
+        add_new(Number, Primary, NullDenotation);
+        add_new(String, Primary, NullDenotation);
+        add_new(Identifier, Primary, NullDenotation);
+
+        //Logical
+        add_new(And, Logical, LeftDenotation);
+        add_new(Or, Logical, LeftDenotation);
+        add_new(DotDot, Logical, LeftDenotation);
+
+        //Comparison
+        add_new(Less, Comparison, LeftDenotation);
+        add_new(LessEquals, Comparison, LeftDenotation);
+        add_new(Greater, Comparison, LeftDenotation);
+        add_new(GreaterEquals, Comparison, LeftDenotation);
+        add_new(Equals, Comparison, LeftDenotation);
+        add_new(NotEquals, Comparison, LeftDenotation);
+
+        //Math
+        add_new(Plus, Additive, LeftDenotation);
+        add_new(Minus, Additive, LeftDenotation);
+
+        add_new(Star, Multiplicative, LeftDenotation);
+        add_new(Divide, Multiplicative, LeftDenotation);
+        add_new(Percent, Multiplicative, LeftDenotation);
+
     }
 
     fn parse_statement(&mut self) -> Result<Box<dyn Statement>, ParserErrors> {
         if *self
             .function_lookup_table
             .get(&self.current_token().kind)
-            .ok_or(ParserErrors::UnexpectedExpressionType(self.current_token().clone()))?
+            .ok_or(ParserErrors::UnexpectedExpressionType(
+                self.current_token().clone(),
+            ))?
             == HandlerTypes::Statement
         {
             return self.parse_statement();
         }
 
         let expression = self.parse_expression(BindingPower::None)?;
-        self.next_token();
+        self.expect_token_and_skip(TokenKind::SemiColon)?;
 
         return Ok(Box::new(ExpressionStatement { expression }));
     }

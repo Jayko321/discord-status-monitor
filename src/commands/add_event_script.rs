@@ -73,7 +73,7 @@ pub fn run(options: &[ResolvedOption]) -> String {
         let token_str = tokens.iter().map(|x| format!("{x}")).collect::<Vec<String>>().join("\n");
         let ast = Parser::parse(tokens);
         res_string = format!("Tokens: {token_str}");
-        res_string += format!("{ast:?}").as_str();
+        res_string += format!("{ast:#?}").as_str();
         //println!("{ast:?}");
         //if let Ok(tokens) = tokens {
             //let token_str = tokens.iter().map(|x| format!("{x}")).collect::<Vec<String>>().join("\n");

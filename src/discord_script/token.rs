@@ -56,8 +56,8 @@ pub enum TokenKind {
 
     //Maths
     Plus,
-    Dash,
-    Slash,
+    Minus,
+    Divide,
     Star,
     Percent,
 

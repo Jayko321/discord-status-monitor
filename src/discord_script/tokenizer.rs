@@ -142,8 +142,8 @@ impl Lexer {
             RegexPattern::new(regex!(r#"\%="#).deref().to_owned(), default_handler(ModEquals, "%=")),
             //Maths
             RegexPattern::new(regex!(r#"\+"#).deref().to_owned(), default_handler(Plus, "+")),
-            RegexPattern::new(regex!(r#"-"#).deref().to_owned(), default_handler(Dash, "-")),
-            RegexPattern::new(regex!(r#"/"#).deref().to_owned(), default_handler(Slash, "/")),
+            RegexPattern::new(regex!(r#"-"#).deref().to_owned(), default_handler(Minus, "-")),
+            RegexPattern::new(regex!(r#"/"#).deref().to_owned(), default_handler(Divide, "/")),
             RegexPattern::new(regex!(r#"\*"#).deref().to_owned(), default_handler(Star, "*")),
             RegexPattern::new(regex!(r#"%"#).deref().to_owned(), default_handler(Percent, "%")),
             //Special cases
