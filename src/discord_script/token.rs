@@ -9,6 +9,7 @@ pub enum TokenKind {
     Identifier,
 
     // Grouping & Braces
+    Pipe,
     OpenBracket,
     CloseBracket,
     OpenCurly,

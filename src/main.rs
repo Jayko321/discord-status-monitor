@@ -19,7 +19,6 @@ use std::time::UNIX_EPOCH;
 
 use self::storage::*;
 
-
 struct Handler;
 
 #[async_trait]
@@ -98,6 +97,7 @@ impl EventHandler for Handler {
 
 #[tokio::main]
 async fn main() {
+    //assert!(false, "TODO: write tests for a Lexer");
     dotenv().ok();
     // Login with a bot token from the environment
     let token = env::var("DISCORD_TOKEN").expect("Not found");

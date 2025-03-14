@@ -27,7 +27,7 @@ impl RegexPattern {
 
 #[derive(Debug)]
 pub enum TokenizerError {
-    InvalidToken,
+    InvalidToken(String),
 }
 
 impl Display for TokenizerError {
@@ -102,6 +102,7 @@ impl Lexer {
         #[rustfmt::skip]
         let patterns = vec![
             //Grouping
+            RegexPattern::new(regex!(r#"\|"#).deref().to_owned(), default_handler(Pipe, "|")),
             RegexPattern::new(regex!(r#"\["#).deref().to_owned(), default_handler(OpenBracket, "[")),
             RegexPattern::new(regex!(r#"\]"#).deref().to_owned(), default_handler(CloseBracket, "]")),
             RegexPattern::new(regex!(r#"\{"#).deref().to_owned(), default_handler(OpenCurly, "{")),
@@ -186,7 +187,8 @@ impl Lexer {
             }
 
             if !matched {
-                return Err(TokenizerError::InvalidToken);
+                let pos = lexer.pos;
+                return Err(TokenizerError::InvalidToken(format!("pos: {pos} source_len: {}", lexer.input.len())));
             }
 
             if let Some(token) = token {
