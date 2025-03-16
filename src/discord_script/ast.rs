@@ -47,3 +47,12 @@ pub struct ExpressionStatement {
     pub expression: Box<dyn Expression>
 }
 impl Statement for ExpressionStatement {}
+
+#[derive(Debug)]
+pub struct VariableStatement {
+    pub is_const: bool,
+    pub variable_name: String,
+    pub explicit_type: Option<String>,
+    pub assignment: Box<dyn Expression>
+}
+impl Statement for VariableStatement {}
