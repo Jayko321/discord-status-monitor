@@ -40,6 +40,7 @@ pub enum LeftDenotationHandlerTypes {
 #[derive(Debug, Clone, PartialEq, PartialOrd, Hash)]
 pub enum NullDenotationHandlerTypes {
     Default,
+    Groupping,
     Unary,
 }
 
@@ -58,43 +59,30 @@ pub struct Parser {
 }
 
 impl Parser {
-    fn parse_primary_expression(&mut self) -> Result<Box<dyn Expression>, ParserErrors> {
-        use super::token::TokenKind::*;
-        let next_token = self.next_token()?;
-        match next_token.kind {
-            Number => {
-                if let Ok(number) = next_token.value.parse::<f64>() {
-                    return Ok(Box::new(NumberExpression { value: number }));
-                }
-                return Err(ParserErrors::NumberIsNotANumber(next_token));
-            }
-            String => Ok(Box::new(StringExpression {
-                value: next_token.value,
-            })),
-            Identifier => Ok(Box::new(SymbolExpression {
-                value: next_token.value,
-            })),
-            _ => {
-                panic!("Should never happen")
-            }
-        }
+    fn try_parse_null_denotaion(
+        &mut self,
+        kind: TokenKind,
+    ) -> Result<Box<dyn Expression>, ParserErrors> {
+        let handler_type =
+            self.null_denotation_lookup
+                .get(&kind)
+                .ok_or(ParserErrors::NoFunctionHandler(
+                    self.current_token().clone(),
+                ))?;
+
+        return match handler_type {
+            NullDenotationHandlerTypes::Default => self.parse_primary_expression(),
+            NullDenotationHandlerTypes::Groupping => self.parse_groupping_expression(),
+            NullDenotationHandlerTypes::Unary => self.parse_unary_expression(),
+        };
     }
 
-    fn try_parse_null_denotaion(&mut self, kind: TokenKind) -> Result<Box<dyn Expression>, ParserErrors> {
-        let handler_type = self
-            .null_denotation_lookup
-            .get(&kind)
-            .ok_or(ParserErrors::NoFunctionHandler(
-                self.current_token().clone(),
-            ))?;
-
-        match handler_type {
-            NullDenotationHandlerTypes::Default => return self.parse_primary_expression(),
-            NullDenotationHandlerTypes::Unary => todo!(),
-        }
-    }
-
-    fn try_parse_left_denotation(&mut self, left: Box<dyn Expression>, new_power: BindingPower, kind: TokenKind)  -> Result<Box<dyn Expression>, ParserErrors> {
+    fn try_parse_left_denotation(
+        &mut self,
+        left: Box<dyn Expression>,
+        new_power: BindingPower,
+        kind: TokenKind,
+    ) -> Result<Box<dyn Expression>, ParserErrors> {
         let function_type = self.left_denotation_lookup.get(&kind).ok_or(
             ParserErrors::UnexpectedExpressionType(self.current_token().clone()),
         )?;
@@ -103,19 +91,19 @@ impl Parser {
             LeftDenotationHandlerTypes::Default => {
                 self.parse_binary_expression(left, new_power.clone())
             }
-            LeftDenotationHandlerTypes::Assignment => todo!(),
+            LeftDenotationHandlerTypes::Assignment => {
+                self.parse_assignment_expression(left, new_power.clone())
+            }
         };
     }
 
-    fn parse_expression(
+    pub(super) fn parse_expression(
         &mut self,
         power: BindingPower,
     ) -> Result<Box<dyn Expression>, ParserErrors> {
         let mut kind = self.current_token().kind.clone();
 
-        self.try_parse_null_denotaion(kind)?;
-
-        let mut left = self.parse_primary_expression()?;
+        let mut left = self.try_parse_null_denotaion(kind)?;
 
         while *self
             .binding_power_lookup
@@ -136,19 +124,19 @@ impl Parser {
         Ok(left)
     }
 
-    fn parse_binary_expression(
-        &mut self,
-        left: Box<dyn Expression>,
-        power: BindingPower,
-    ) -> Result<Box<dyn Expression>, ParserErrors> {
-        let op_token = self.next_token()?;
-        let right = self.parse_expression(power)?;
+    fn parse_statement(&mut self) -> Result<Box<dyn Statement>, ParserErrors> {
+        let statement_handler_type = self.statement_lookup.get(&self.current_token().kind);
+        if let Some(statement_handler_type) = statement_handler_type {
+            match *statement_handler_type {
+                StatementHandlerTypes::Default => return self.parse_statement(),
+                StatementHandlerTypes::Variable => return self.parse_variable_statement(),
+            };
+        }
 
-        Ok(Box::new(BinaryExpression {
-            left,
-            operator: op_token.clone(),
-            right,
-        }))
+        let expression = self.parse_expression(BindingPower::None)?;
+        self.expect_token(TokenKind::SemiColon)?;
+
+        return Ok(Box::new(ExpressionStatement { expression }));
     }
 
     fn has_tokens(&self) -> bool {
@@ -166,11 +154,11 @@ impl Parser {
         Ok(Box::new(BlockStatement { body }))
     }
 
-    fn current_token(&self) -> &Token {
+    pub(super) fn current_token(&self) -> &Token {
         return &self.tokens.front().unwrap();
     }
 
-    fn next_token(&mut self) -> Result<Token, ParserErrors> {
+    pub(super) fn next_token(&mut self) -> Result<Token, ParserErrors> {
         self.tokens
             .pop_front()
             .ok_or(ParserErrors::NextTokenNotFound)
@@ -189,7 +177,7 @@ impl Parser {
         res
     }
 
-    fn expect_token_and_skip(&mut self, kind: TokenKind) -> Result<Token, ParserErrors> {
+    pub(super) fn expect_token(&mut self, kind: TokenKind) -> Result<Token, ParserErrors> {
         if kind != self.current_token().kind {
             return Err(ParserErrors::UnexpectedTokenKind(
                 self.current_token().clone(),
@@ -217,6 +205,12 @@ impl Parser {
         self.null_denotation_lookup
             .insert(Identifier, NullDenotationHandlerTypes::Default);
 
+        self.null_denotation_lookup
+            .insert(Minus, NullDenotationHandlerTypes::Unary);
+        self.null_denotation_lookup
+            .insert(Not, NullDenotationHandlerTypes::Unary);
+        self.null_denotation_lookup
+            .insert(OpenParen, NullDenotationHandlerTypes::Groupping);
         //Logical
         add_new(And, Logical, LeftDenotationHandlerTypes::Default);
         add_new(Or, Logical, LeftDenotationHandlerTypes::Default);
@@ -242,66 +236,17 @@ impl Parser {
         add_new(Divide, Multiplicative, LeftDenotationHandlerTypes::Default);
         add_new(Percent, Multiplicative, LeftDenotationHandlerTypes::Default);
 
+        //
+        add_new(
+            TokenKind::Assignment,
+            BindingPower::Assignment,
+            LeftDenotationHandlerTypes::Assignment,
+        );
+
         //Statements
         self.statement_lookup
             .insert(Let, StatementHandlerTypes::Variable);
         self.statement_lookup
             .insert(Const, StatementHandlerTypes::Variable);
-    }
-
-    fn parse_statement(&mut self) -> Result<Box<dyn Statement>, ParserErrors> {
-        let statement_handler_type = self.statement_lookup.get(&self.current_token().kind);
-        if let Some(statement_handler_type) = statement_handler_type {
-            match *statement_handler_type {
-                StatementHandlerTypes::Default => return self.parse_statement(),
-                StatementHandlerTypes::Variable => return self.parse_variable_statement(),
-            };
-        }
-
-        let expression = self.parse_expression(BindingPower::None)?;
-        self.expect_token_and_skip(TokenKind::SemiColon)?;
-
-        return Ok(Box::new(ExpressionStatement { expression }));
-    }
-
-    fn parse_variable_statement(&mut self) -> Result<Box<dyn Statement>, ParserErrors> {
-        let let_token = self.next_token()?;
-        let is_const = match let_token.kind {
-            TokenKind::Const => true,
-            TokenKind::Let => false,
-            _ => {
-                return Err(ParserErrors::UnexpectedTokenKind(let_token));
-            }
-        };
-
-        let name_token = self.expect_token_and_skip(TokenKind::Identifier)?;
-        let after_name = self.next_token()?;
-        let has_explicit_type = match after_name.kind {
-            TokenKind::Colon => true,
-            TokenKind::Assignment => false,
-            _ => return Err(ParserErrors::UnexpectedTokenKind(after_name)),
-        };
-        let mut explicit_type_val = None;
-        if has_explicit_type {
-            let explicit_type = self.next_token()?;
-            if explicit_type.kind != TokenKind::Identifier {
-                return Err(ParserErrors::UnexpectedTokenKind(explicit_type));
-            }
-            explicit_type_val = Some(explicit_type.value);
-            self.expect_token_and_skip(TokenKind::Assignment)?;
-        }
-
-        //self.expect_token_and_skip(TokenKind::Assignment)?;
-
-        let expr = self.parse_expression(BindingPower::None)?;
-
-        self.expect_token_and_skip(TokenKind::SemiColon)?;
-
-        return Ok(Box::new(VariableStatement {
-            is_const,
-            variable_name: name_token.value,
-            explicit_type: explicit_type_val,
-            assignment: expr,
-        }));
     }
 }

@@ -35,6 +35,28 @@ pub struct BinaryExpression {
 }
 impl Expression for BinaryExpression {}
 
+
+#[derive(Debug)]
+pub struct UnaryExpression {
+    pub operator: Token,
+    pub expression: Box<dyn Expression>
+}
+impl Expression for UnaryExpression {}
+
+#[derive(Debug)]
+pub struct GrouppingExpression {
+    pub inner: Box<dyn Expression>
+}
+impl Expression for GrouppingExpression {}
+
+#[derive(Debug)]
+pub struct AssignmentExpression {
+    pub assigne: Box<dyn Expression>,
+    pub operator: Token,
+    pub value: Box<dyn Expression>
+}
+impl Expression for AssignmentExpression {}
+
 //STATEMENTS
 #[derive(Debug)]
 pub struct BlockStatement {
