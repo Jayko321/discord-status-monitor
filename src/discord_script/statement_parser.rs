@@ -22,12 +22,13 @@ impl Parser {
         };
         let mut explicit_type_val = None;
         if has_explicit_type {
+            self.expect_token(TokenKind::Colon)?;
             let explicit_type = self.next_token()?;
             if explicit_type.kind != TokenKind::Identifier {
                 return Err(ParserErrors::UnexpectedTokenKind(explicit_type));
             }
             explicit_type_val = Some(explicit_type.value);
-            self.expect_token(TokenKind::Assignment)?;
+            //self.expect_token(TokenKind::Assignment)?;
         }
 
         self.expect_token(TokenKind::Assignment)?;
