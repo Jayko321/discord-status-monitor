@@ -1,3 +1,4 @@
+#![cfg_attr(not(debug_assertions), deny(warnings))]
 pub mod commands;
 pub mod schema;
 pub mod storage;
