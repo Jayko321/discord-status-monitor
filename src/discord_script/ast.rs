@@ -223,7 +223,7 @@ pub struct VariableStatement {
     pub assignment: Box<dyn Expression>,
 }
 impl Statement for VariableStatement {
-    fn evaluate(&self, buffer: Box<&mut [u8]>) -> Result<(), StatementExecutionError> {
+    fn evaluate(&self, _buffer: Box<&mut [u8]>) -> Result<(), StatementExecutionError> {
         todo!()
     }
 
