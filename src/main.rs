@@ -65,7 +65,7 @@ impl EventHandler for Handler {
                 "check" => Some(commands::check::run(&command.data.options())),
                 "filter" => Some(commands::filter::run(&command.data.options())),
                 "whoplayed" => Some(commands::whoplayed::run(&command.data.options())),
-                "add_event_script" => Some(commands::add_event_script::run(&command.data.options())),
+                "execute" => Some(commands::execute::run(&command.data.options())),
                 _ => Some("No command".to_string()),
             };
 
@@ -94,7 +94,7 @@ impl EventHandler for Handler {
                     commands::check::register(),
                     commands::filter::register(),
                     commands::whoplayed::register(),
-                    commands::add_event_script::register(),
+                    commands::execute::register(),
                 ],
             )
             .await;

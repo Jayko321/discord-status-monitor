@@ -1,3 +1,4 @@
+use crate::discord_script::ast::Statement;
 use crate::discord_script::parser::Parser;
 use crate::discord_script::tokenizer::*;
 use serenity::builder::{CreateCommand, CreateCommandOption};
@@ -74,6 +75,18 @@ pub fn run(options: &[ResolvedOption]) -> String {
         let ast = Parser::parse(tokens);
         res_string = format!("Tokens: {token_str}");
         res_string += format!("{ast:#?}").as_str();
+        match ast {
+            Ok(block) => {
+                let mut buf: Vec<u8> = vec![0; block.get_memory_allocation_info().count];
+
+                _ = block.evaluate(Box::new(buf.iter_mut().into_slice()));
+                let res = buf.iter().map(|x| format!("{x:#b}")).collect::<Vec<String>>().join(", ");
+
+                res_string += format!("\n Memory: {res:#?} \n Value as f64: **{}**", f64::from_be_bytes(buf[0..8].try_into().unwrap())).as_str();
+
+            },
+            Err(_) => {},
+        }
         //println!("{ast:?}");
         //if let Ok(tokens) = tokens {
             //let token_str = tokens.iter().map(|x| format!("{x}")).collect::<Vec<String>>().join("\n");
@@ -87,7 +100,7 @@ pub fn run(options: &[ResolvedOption]) -> String {
 }
 
 pub fn register() -> CreateCommand {
-    CreateCommand::new("add_event_script")
+    CreateCommand::new("execute")
         .description("DEBUG ONLY Don't use")
         .add_option(
             CreateCommandOption::new(
