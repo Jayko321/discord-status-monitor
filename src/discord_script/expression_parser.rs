@@ -48,8 +48,14 @@ impl Parser {
         let next_token = self.next_token()?;
         match next_token.kind {
             Number => {
+                if let Ok(number) = next_token.value.parse::<i64>() {
+                    return Ok(Box::new(IntegerExpression { value: i128::from(number) }));
+                }
+                if let Ok(number) = next_token.value.parse::<u64>() {
+                    return Ok(Box::new(IntegerExpression { value: i128::from(number) }));
+                }
                 if let Ok(number) = next_token.value.parse::<f64>() {
-                    return Ok(Box::new(NumberExpression { value: number }));
+                    return Ok(Box::new(FloatExpression { value: number }));
                 }
                 return Err(ParserErrors::NumberIsNotANumber(next_token));
             }

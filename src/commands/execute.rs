@@ -1,4 +1,4 @@
-use crate::discord_script::ast::Statement;
+use crate::discord_script::interpreter::Interpreter;
 use crate::discord_script::parser::Parser;
 use crate::discord_script::tokenizer::*;
 use serenity::builder::{CreateCommand, CreateCommandOption};
@@ -74,19 +74,14 @@ pub fn run(options: &[ResolvedOption]) -> String {
         let token_str = tokens.iter().map(|x| format!("{x}")).collect::<Vec<String>>().join("\n");
         let ast = Parser::parse(tokens);
         res_string = format!("Tokens: {token_str}");
-        res_string += format!("{ast:#?}").as_str();
-        match ast {
-            Ok(block) => {
-                let mut buf: Vec<u8> = vec![0; block.get_memory_allocation_info().count];
+        res_string += format!("\n{ast:#?}").as_str();
+        let mut inter = Interpreter::new();
+        inter.null_expression_out = Some(Box::new(move |value| {
+            println!("\n {:?}", value);
+        }));
+        _ = inter.execute(*ast.unwrap());
 
-                _ = block.evaluate(Box::new(buf.iter_mut().into_slice()));
-                let res = buf.iter().map(|x| format!("{x:#b}")).collect::<Vec<String>>().join(", ");
 
-                res_string += format!("\n Memory: {res:#?} \n Value as f64: **{}**", f64::from_be_bytes(buf[0..8].try_into().unwrap())).as_str();
-
-            },
-            Err(_) => {},
-        }
         //println!("{ast:?}");
         //if let Ok(tokens) = tokens {
             //let token_str = tokens.iter().map(|x| format!("{x}")).collect::<Vec<String>>().join("\n");

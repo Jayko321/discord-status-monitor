@@ -57,7 +57,7 @@ impl EventHandler for Handler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::Command(command) = interaction {
-            let allowed_ids: Vec<u64> = vec!(976552221191835718, 363362909822124052);
+            let allowed_ids: Vec<u64> = vec!(976552221191835718, 363362909822124052, 467396986279034881);
             if !allowed_ids.contains(&command.user.id.into()) {
                 return;
             }
