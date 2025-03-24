@@ -9,3 +9,4 @@ dotenv = "*"
 tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }
 diesel = { version = "2.2.0", features = ["sqlite"] }
 lazy-regex = "3.4.1"
+num-traits = "0.2.19"
