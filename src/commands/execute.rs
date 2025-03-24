@@ -34,7 +34,7 @@ pub fn run(options: &[ResolvedOption]) -> String {
         //res_string = format!("Tokens: {token_str}");
 
         let ast = Parser::parse(tokens);
-        //res_string += format!("\n{ast:#?}").as_str();
+        res_string += format!("\n{ast:#?}").as_str();
         let mut inter = Interpreter::new();
         inter.null_expression_out = Some(Box::new(|value| {
             let mut val = script_output.lock().unwrap();
@@ -45,7 +45,7 @@ pub fn run(options: &[ResolvedOption]) -> String {
             let mut val = script_output.lock().unwrap();
             *val += format!("\n Error occured while evaluating an expression! {}", err).as_str();
         }));
-        _ = inter.execute(*ast.unwrap());
+        //_ = inter.execute(*ast.unwrap());
     }
     let val = script_output.lock().unwrap();
     res_string += val.as_str();

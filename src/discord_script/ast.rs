@@ -1,6 +1,6 @@
 use super::token::{Token, TokenKind};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Types {
     Integer,
     UnsingedInteger,
@@ -8,7 +8,7 @@ pub enum Types {
     String,
     Boolean,
     Pointer,
-    Custom,
+    Custom, //Identifier hopefully
 }
 
 impl Types {
@@ -37,7 +37,6 @@ pub struct AbstractValue {
     pub memory: Box<Vec<u8>>,
     pub _type: Types,
 }
-
 
 impl AbstractValue {
     pub fn new(memory: Box<Vec<u8>>, _type: Types) -> Self {
@@ -304,6 +303,17 @@ pub struct AssignmentExpression {
     pub value: Box<dyn Expression>,
 }
 impl Expression for AssignmentExpression {
+    fn get_description(&self) -> AbstractExpressionDescription {
+        todo!()
+    }
+}
+
+#[derive(Debug)]
+pub struct FunctionCallExpression {
+    pub params: Vec<Box<dyn Expression>>,
+    pub identifier: Box<dyn Expression>,
+}
+impl Expression for FunctionCallExpression {
     fn get_description(&self) -> AbstractExpressionDescription {
         todo!()
     }

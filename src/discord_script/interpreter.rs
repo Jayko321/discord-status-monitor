@@ -9,10 +9,18 @@ use super::ast::{
     Statement,
 };
 
+#[derive(PartialEq, PartialOrd, Eq, Debug, Clone, Ord)]
+pub struct CustomType {
+    size: usize,
+    identifier: String,
+}
+
 #[derive(PartialEq, Eq, PartialOrd)]
 pub struct Variable {
     pub value: Box<Vec<u8>>,
     pub depth: usize,
+    pub _type: Types,
+    pub custom: Option<CustomType>
 }
 
 impl Ord for Variable {
@@ -64,6 +72,18 @@ impl Interpreter<'_> {
                 }
             }
         };
+        //dumping all variables
+        //if !self.vars.is_empty() {
+        //    if let Some(cb) = &mut self.null_expression_out {
+        //        self.vars.values().into_iter().all(|v| {
+        //            v.iter().all(|val| {
+        //                (cb)(*val.value);
+        //                true
+        //            });
+        //            true
+        //        });
+        //    }
+        //}
         //self.execute_statement(ast.get_description());
     }
 
@@ -73,9 +93,12 @@ impl Interpreter<'_> {
     ) -> Result<Option<AbstractValue>, Box<dyn Error>> {
         match description {
             AbstractStatementDescription::Variable(name, _size, value) => {
+                let solved_value = self.execute_expression(*value)?;
                 let var = Variable {
-                    value: self.execute_expression(*value)?.memory,
+                    value: solved_value.memory,
                     depth: 0,
+                    _type: solved_value._type,
+                    custom: None
                 };
                 if let Some(vars) = self.vars.get_mut(&name) {
                     if vars.contains(&var) {

@@ -35,6 +35,7 @@ pub enum ParserErrors {
 pub enum LeftDenotationHandlerTypes {
     Default,
     Assignment,
+    FunctionCall,
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Hash)]
@@ -93,6 +94,9 @@ impl Parser {
             }
             LeftDenotationHandlerTypes::Assignment => {
                 self.parse_assignment_expression(left, new_power.clone())
+            }
+            LeftDenotationHandlerTypes::FunctionCall => {
+                self.parse_function_call(left, new_power.clone())
             }
         };
     }
@@ -235,6 +239,8 @@ impl Parser {
         add_new(Star, Multiplicative, LeftDenotationHandlerTypes::Default);
         add_new(Divide, Multiplicative, LeftDenotationHandlerTypes::Default);
         add_new(Percent, Multiplicative, LeftDenotationHandlerTypes::Default);
+
+        add_new(OpenParen, Call, LeftDenotationHandlerTypes::FunctionCall);
 
         //
         add_new(

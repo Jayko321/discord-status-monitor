@@ -82,5 +82,32 @@ impl Parser {
         }))
 
     }
+
+    pub(super) fn parse_function_call(&mut self, left: Box<dyn Expression>, power: BindingPower) -> Result<Box<dyn Expression>, ParserErrors> {
+        let mut params = vec!();
+
+        self.expect_token(TokenKind::OpenParen)?;
+
+        let mut has_args = false;
+        if let Err(e) = self.expect_token(TokenKind::CloseParen) {
+            match e {
+                ParserErrors::UnexpectedTokenKind(_) => has_args = true,
+                _ => { return Err(e) }
+            }
+        }
+
+        if has_args {
+            params.push(self.parse_expression(power.clone())?);
+            while let Ok(_) = self.expect_token(TokenKind::Comma) {
+                params.push(self.parse_expression(power.clone())?);
+            } 
+        }
+
+        self.expect_token(TokenKind::CloseParen)?;
+        Ok(Box::new(FunctionCallExpression {
+            params,
+            identifier: left
+        }))
+    }
 }
 
