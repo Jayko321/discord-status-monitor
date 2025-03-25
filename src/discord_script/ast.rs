@@ -33,7 +33,7 @@ impl Types {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct AbstractValue {
     pub memory: Box<Vec<u8>>,
     pub _type: Types,
@@ -131,6 +131,7 @@ pub enum AbstractExpressionDescription {
     UnsingedInteger(AbstractValue),
     Float(AbstractValue),
     LiteralString(AbstractValue),
+    Symbol(String),
     Binary(
         Box<AbstractExpressionDescription>,
         Box<AbstractExpressionDescription>,
@@ -248,10 +249,9 @@ pub struct SymbolExpression {
 }
 impl Expression for SymbolExpression {
     fn get_description(&self) -> AbstractExpressionDescription {
-        AbstractExpressionDescription::LiteralString(AbstractValue {
-            memory: Box::new(self.value.clone().into_bytes()),
-            _type: Types::String,
-        })
+        AbstractExpressionDescription::Symbol(
+            self.value.clone()
+        )
     }
 
     fn get_memory_allocation_info(&self) -> MemoryAllocationInfo {

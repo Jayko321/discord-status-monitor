@@ -15,11 +15,10 @@ pub struct CustomType {
     identifier: String,
 }
 
-#[derive(PartialEq, Eq, PartialOrd)]
+#[derive(PartialEq, Eq, PartialOrd, Debug, Clone)]
 pub struct Variable {
-    pub value: Box<Vec<u8>>,
+    pub value: AbstractValue,
     pub depth: usize,
-    pub internal_type: Types,
 }
 
 impl Ord for Variable {
@@ -42,7 +41,7 @@ pub struct Interpreter<'a> {
     pub system_functions: HashMap<String, Function>,
     pub system_function_executor: Option<SystemFunctionExecutor<'a>>,
     pub current_depth: usize,
-    pub null_expression_out: Option<Box<dyn FnMut(AbstractValue) + 'a>>,
+    pub null_expression_out: Option<Box<dyn FnMut(&AbstractValue) + 'a>>,
     pub on_error: Option<Box<dyn Fn(String) + 'a>>,
 }
 
@@ -53,6 +52,7 @@ pub enum InterpreterErrors {
     Unimplemented,
     FunctionNotFound(String),
     ArgumentCountMismatch(String, usize, usize),
+    TypeMismatch(String),
 }
 
 impl Display for InterpreterErrors {
@@ -97,17 +97,16 @@ impl Interpreter<'_> {
             }
         };
         //dumping all variables
-        //if !self.vars.is_empty() {
-        //    if let Some(cb) = &mut self.null_expression_out {
-        //        self.vars.values().into_iter().all(|v| {
-        //            v.iter().all(|val| {
-        //                (cb)(*val.value);
-        //                true
-        //            });
-        //            true
-        //        });
-        //    }
-        //}
+        if !self.vars.is_empty() {
+           if let Some(cb) = &mut self.null_expression_out {
+               for vars in self.vars.values() {
+                   for var in vars {
+                       (cb)(&var.value);
+                   }
+                   
+               }
+           }
+        }
         //self.execute_statement(ast.get_description());
     }
 
@@ -119,9 +118,8 @@ impl Interpreter<'_> {
             AbstractStatementDescription::Variable(name, _size, value) => {
                 let solved_value = self.execute_expression(*value)?;
                 let var = Variable {
-                    value: solved_value.memory,
-                    depth: 0,
-                    internal_type: solved_value._type,
+                    value: solved_value,
+                    depth: self.current_depth,
                 };
                 if let Some(vars) = self.vars.get_mut(&name) {
                     if vars.contains(&var) {
@@ -139,13 +137,14 @@ impl Interpreter<'_> {
                 let mut value = None;
                 for statement in statements {
                     value = self.execute_statement(*statement)?;
+                    self.current_depth += 1;
                 }
                 Ok(value)
             }
             AbstractStatementDescription::Expression(expr) => {
                 let value = self.execute_expression(*expr)?;
                 if let Some(cb) = &mut self.null_expression_out {
-                    (cb)(value);
+                    (cb)(&value);
                 }
                 Ok(None)
             }
@@ -160,6 +159,12 @@ impl Interpreter<'_> {
         match expr {
             Integer(value) | UnsingedInteger(value) | Float(value) | LiteralString(value) => {
                 Ok(value)
+            }
+            Symbol(name) => {
+                if let Some(var) = self.vars.get(&name) {
+                    return Ok(var.first().unwrap().value.clone());
+                }
+                Ok(AbstractValue::from(name))
             }
             AbstractExpressionDescription::Binary(left, right, binary_operations) => {
                 let left_value = self.execute_expression(*left)?;
@@ -240,7 +245,6 @@ impl Interpreter<'_> {
             }
             AbstractExpressionDescription::FunctionCall(identifier_expression, argument_count, arguments) => {
                 let identifier = String::from(self.execute_expression(*identifier_expression)?);
-                println!("Executing function call: {}", identifier);
                 let mut args = Vec::new();
                 for arg in arguments {
                     args.push(self.execute_expression(*arg)?);
@@ -248,11 +252,16 @@ impl Interpreter<'_> {
                 
                 if let Some(executor) = &mut self.system_function_executor {
                     if identifier.ends_with("!") {
-                        println!("Executing system function call: {}", identifier);
                         let func = self.system_functions.get_mut(&identifier).ok_or(InterpreterErrors::FunctionNotFound(identifier.clone()))?;
                         if func.parameters.len() != argument_count {
                             return Err(Box::new(InterpreterErrors::ArgumentCountMismatch(identifier, func.parameters.len(), argument_count)));
                         }
+                        
+                        let correct_types = func.parameters.iter().zip(args.iter()).all(|(param, arg)| *param == arg._type);
+                        if !correct_types {
+                            return Err(Box::new(InterpreterErrors::TypeMismatch(identifier)));
+                        }
+                        
                         (executor)(identifier, args);
                         return Ok(AbstractValue::new(Box::new(vec!()), Types::Void))
                     }
