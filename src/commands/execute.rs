@@ -45,7 +45,18 @@ pub fn run(options: &[ResolvedOption]) -> String {
             let mut val = script_output.lock().unwrap();
             *val += format!("\n Error occured while evaluating an expression! {}", err).as_str();
         }));
-        //_ = inter.execute(*ast.unwrap());
+        inter.system_function_executor = Some(Box::new(|name, args| {
+            match name.as_str() {
+                "debug_reply!" => {
+                    let mut val = script_output.lock().unwrap();
+                    let arg = String::from(args.first().unwrap());
+                    *val += format!("\n Reply from debug_reply! function: {}", arg).as_str();
+                }
+                _ => {},
+            }
+           None 
+        }));
+        inter.execute(*ast.unwrap());
     }
     let val = script_output.lock().unwrap();
     res_string += val.as_str();

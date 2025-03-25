@@ -1,6 +1,6 @@
-use crate::discord_script::ast::*;
 use super::parser::*;
 use super::token::*;
+use crate::discord_script::ast::*;
 
 impl Parser {
     pub(super) fn parse_unary_expression(&mut self) -> Result<Box<dyn Expression>, ParserErrors> {
@@ -18,14 +18,14 @@ impl Parser {
         }))
     }
 
-    pub(super) fn parse_groupping_expression(&mut self) -> Result<Box<dyn Expression>, ParserErrors> {
+    pub(super) fn parse_groupping_expression(
+        &mut self,
+    ) -> Result<Box<dyn Expression>, ParserErrors> {
         self.expect_token(TokenKind::OpenParen)?;
         let inner = self.parse_expression(BindingPower::None)?;
         self.expect_token(TokenKind::CloseParen)?;
 
-        Ok(Box::new(GrouppingExpression {
-            inner
-        }))
+        Ok(Box::new(GrouppingExpression { inner }))
     }
 
     pub(super) fn parse_binary_expression(
@@ -49,10 +49,14 @@ impl Parser {
         match next_token.kind {
             Number => {
                 if let Ok(number) = next_token.value.parse::<i64>() {
-                    return Ok(Box::new(IntegerExpression { value: i128::from(number) }));
+                    return Ok(Box::new(IntegerExpression {
+                        value: i128::from(number),
+                    }));
                 }
                 if let Ok(number) = next_token.value.parse::<u64>() {
-                    return Ok(Box::new(IntegerExpression { value: i128::from(number) }));
+                    return Ok(Box::new(IntegerExpression {
+                        value: i128::from(number),
+                    }));
                 }
                 if let Ok(number) = next_token.value.parse::<f64>() {
                     return Ok(Box::new(FloatExpression { value: number }));
@@ -71,20 +75,27 @@ impl Parser {
         }
     }
 
-    pub(super) fn parse_assignment_expression(&mut self, left: Box<dyn Expression>, power: BindingPower) -> Result<Box<dyn Expression>, ParserErrors> {
+    pub(super) fn parse_assignment_expression(
+        &mut self,
+        left: Box<dyn Expression>,
+        power: BindingPower,
+    ) -> Result<Box<dyn Expression>, ParserErrors> {
         let operator = self.next_token()?;
         let value = self.parse_expression(power)?;
 
         Ok(Box::new(AssignmentExpression {
             assigne: left,
             operator,
-            value
+            value,
         }))
-
     }
 
-    pub(super) fn parse_function_call(&mut self, left: Box<dyn Expression>, power: BindingPower) -> Result<Box<dyn Expression>, ParserErrors> {
-        let mut params = vec!();
+    pub(super) fn parse_function_call(
+        &mut self,
+        left: Box<dyn Expression>,
+        power: BindingPower,
+    ) -> Result<Box<dyn Expression>, ParserErrors> {
+        let mut params = vec![];
 
         self.expect_token(TokenKind::OpenParen)?;
 
@@ -92,22 +103,21 @@ impl Parser {
         if let Err(e) = self.expect_token(TokenKind::CloseParen) {
             match e {
                 ParserErrors::UnexpectedTokenKind(_) => has_args = true,
-                _ => { return Err(e) }
+                _ => return Err(e),
             }
         }
 
         if has_args {
             params.push(self.parse_expression(power.clone())?);
             while let Ok(_) = self.expect_token(TokenKind::Comma) {
-                params.push(self.parse_expression(power.clone())?);
-            } 
+                params.push(self.parse_expression(BindingPower::None)?);
+            }
         }
 
         self.expect_token(TokenKind::CloseParen)?;
         Ok(Box::new(FunctionCallExpression {
             params,
-            identifier: left
+            identifier: left,
         }))
     }
 }
-

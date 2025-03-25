@@ -19,8 +19,7 @@ pub struct CustomType {
 pub struct Variable {
     pub value: Box<Vec<u8>>,
     pub depth: usize,
-    pub _type: Types,
-    pub custom: Option<CustomType>
+    pub internal_type: Types,
 }
 
 impl Ord for Variable {
@@ -29,8 +28,19 @@ impl Ord for Variable {
     }
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Debug, Clone, Ord)]
+pub struct Function {
+    pub identifier: String,
+    pub parameters: Vec<Types>,
+    pub return_value: Option<Types>,
+}
+
+pub type SystemFunctionExecutor<'a> = Box<dyn Fn(String, Vec<AbstractValue>) -> Option<Types> + 'a>;
+
 pub struct Interpreter<'a> {
-    pub vars: std::collections::HashMap<String, Vec<Variable>>,
+    pub vars: HashMap<String, Vec<Variable>>,
+    pub system_functions: HashMap<String, Function>,
+    pub system_function_executor: Option<SystemFunctionExecutor<'a>>,
     pub current_depth: usize,
     pub null_expression_out: Option<Box<dyn FnMut(AbstractValue) + 'a>>,
     pub on_error: Option<Box<dyn Fn(String) + 'a>>,
@@ -41,6 +51,8 @@ pub enum InterpreterErrors {
     VariableAlreadyExists(String),
     SymbolNotFound(String),
     Unimplemented,
+    FunctionNotFound(String),
+    ArgumentCountMismatch(String, usize, usize),
 }
 
 impl Display for InterpreterErrors {
@@ -52,12 +64,24 @@ impl Error for InterpreterErrors {}
 
 impl Interpreter<'_> {
     pub fn new() -> Self {
-        Self {
+        let mut res = Self {
             vars: HashMap::new(),
+            system_functions: HashMap::new(),
+            system_function_executor: None,
             current_depth: 0,
             null_expression_out: None,
             on_error: None,
-        }
+        };
+        res.system_functions.insert(
+            "debug_reply!".to_owned(),
+            Function {
+                identifier: "debug_reply!".to_owned(),
+                parameters: vec![Types::String],
+                return_value: None,
+            },
+        );
+
+        res
     }
 
     pub fn execute(&mut self, ast: BlockStatement) {
@@ -97,8 +121,7 @@ impl Interpreter<'_> {
                 let var = Variable {
                     value: solved_value.memory,
                     depth: 0,
-                    _type: solved_value._type,
-                    custom: None
+                    internal_type: solved_value._type,
                 };
                 if let Some(vars) = self.vars.get_mut(&name) {
                     if vars.contains(&var) {
@@ -215,7 +238,27 @@ impl Interpreter<'_> {
 
                 Ok(AbstractValue::new(Box::new(res), _type))
             }
-            AbstractExpressionDescription::FunctionCall(_) => todo!(),
+            AbstractExpressionDescription::FunctionCall(identifier_expression, argument_count, arguments) => {
+                let identifier = String::from(self.execute_expression(*identifier_expression)?);
+                println!("Executing function call: {}", identifier);
+                let mut args = Vec::new();
+                for arg in arguments {
+                    args.push(self.execute_expression(*arg)?);
+                };
+                
+                if let Some(executor) = &mut self.system_function_executor {
+                    if identifier.ends_with("!") {
+                        println!("Executing system function call: {}", identifier);
+                        let func = self.system_functions.get_mut(&identifier).ok_or(InterpreterErrors::FunctionNotFound(identifier.clone()))?;
+                        if func.parameters.len() != argument_count {
+                            return Err(Box::new(InterpreterErrors::ArgumentCountMismatch(identifier, func.parameters.len(), argument_count)));
+                        }
+                        (executor)(identifier, args);
+                        return Ok(AbstractValue::new(Box::new(vec!()), Types::Void))
+                    }
+                }
+                Err(Box::new(InterpreterErrors::Unimplemented))
+            },
         }
     }
 }

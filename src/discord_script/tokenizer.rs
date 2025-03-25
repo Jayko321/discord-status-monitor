@@ -62,9 +62,9 @@ fn skip_handler(regex: &Regex, remainder: &String, _: usize, _: usize) -> (usize
 
 fn string_handler(regex: &Regex, remainder: &String, line: usize, pos: usize) -> (usize, Option<Token>) {
     if let Some(pat) = regex.find(remainder) {
-        let str_value = pat.as_str();
+        let str_value = pat.as_str().trim_matches('\"');
         return (
-            str_value.len(),
+            str_value.len() + 2,
             Some(Token::new(TokenKind::String, str_value.to_string(), line, pos)),
         );
     }
@@ -151,7 +151,7 @@ impl Lexer {
             RegexPattern::new(regex!(r#"\/\/.*"#).deref().to_owned(), Box::new(skip_handler)),
             RegexPattern::new(regex!(r#""[^"]*""#).deref().to_owned(), Box::new(string_handler)),
             RegexPattern::new(regex!(r#"[0-9]+(\.[0-9]+)?"#).deref().to_owned(), Box::new(number_handler)),
-            RegexPattern::new(regex!(r#"[a-zA-Z_][a-zA-Z0-9_]*"#).deref().to_owned(), Box::new(symbol_handler)),
+            RegexPattern::new(regex!(r#"[a-zA-Z_][a-zA-Z0-9_!]*"#).deref().to_owned(), Box::new(symbol_handler)),
         ];
         Self {
             tokens: vec![],

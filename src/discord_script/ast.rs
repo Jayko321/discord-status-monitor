@@ -8,7 +8,8 @@ pub enum Types {
     String,
     Boolean,
     Pointer,
-    Custom, //Identifier hopefully
+    Custom(String, usize),
+    Void, //Identifier, size
 }
 
 impl Types {
@@ -86,11 +87,19 @@ impl From<AbstractValue> for String {
     }
 }
 
+impl From<&AbstractValue> for String {
+    fn from(value: &AbstractValue) -> Self {
+        let copied = *value.memory.clone();
+        String::from_utf8(copied).unwrap()
+    }
+}
+
 impl From<String> for AbstractValue {
     fn from(value: String) -> Self {
         Self::new(Box::new(value.into_bytes()), Types::String)
     }
 }
+
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum BinaryOperations {
@@ -127,9 +136,13 @@ pub enum AbstractExpressionDescription {
         Box<AbstractExpressionDescription>,
         BinaryOperations,
     ),
-    FunctionCall(Box<BlockStatement>),
-    //Groupping(), // TODO: Resolve before execution, (just unwind this so that an ast is correct
-    // before execution, like parantheses were there)
+    FunctionCall(
+        Box<AbstractExpressionDescription>,
+        usize,
+        Vec<Box<AbstractExpressionDescription>>,
+    ), //Identifier(SymbolExpression), ArgumentCount, Arguments
+       //Groupping(), // TODO: Resolve before execution, (just unwind this so that an ast is correct
+       // before execution, like parantheses were there)
 }
 
 impl PartialEq for AbstractExpressionDescription {
@@ -235,7 +248,10 @@ pub struct SymbolExpression {
 }
 impl Expression for SymbolExpression {
     fn get_description(&self) -> AbstractExpressionDescription {
-        todo!();
+        AbstractExpressionDescription::LiteralString(AbstractValue {
+            memory: Box::new(self.value.clone().into_bytes()),
+            _type: Types::String,
+        })
     }
 
     fn get_memory_allocation_info(&self) -> MemoryAllocationInfo {
@@ -315,7 +331,16 @@ pub struct FunctionCallExpression {
 }
 impl Expression for FunctionCallExpression {
     fn get_description(&self) -> AbstractExpressionDescription {
-        todo!()
+        let params: Vec<Box<AbstractExpressionDescription>> = self
+            .params
+            .iter()
+            .map(|v| Box::new(v.get_description()))
+            .collect();
+        AbstractExpressionDescription::FunctionCall {
+            0: Box::new(self.identifier.get_description()),
+            1: params.len(),
+            2: params,
+        }
     }
 }
 
