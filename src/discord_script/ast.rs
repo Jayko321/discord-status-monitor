@@ -100,7 +100,6 @@ impl From<String> for AbstractValue {
     }
 }
 
-
 #[derive(PartialEq, Debug, Clone)]
 pub enum BinaryOperations {
     Add,
@@ -249,9 +248,7 @@ pub struct SymbolExpression {
 }
 impl Expression for SymbolExpression {
     fn get_description(&self) -> AbstractExpressionDescription {
-        AbstractExpressionDescription::Symbol(
-            self.value.clone()
-        )
+        AbstractExpressionDescription::Symbol(self.value.clone())
     }
 
     fn get_memory_allocation_info(&self) -> MemoryAllocationInfo {

@@ -1,6 +1,6 @@
-use crate::discord_script::ast::*;
 use super::parser::*;
 use super::token::*;
+use crate::discord_script::ast::*;
 
 impl Parser {
     pub(super) fn parse_variable_statement(&mut self) -> Result<Box<dyn Statement>, ParserErrors> {
@@ -18,7 +18,11 @@ impl Parser {
         let has_explicit_type = match self.current_token().kind {
             TokenKind::Colon => true,
             TokenKind::Assignment => false,
-            _ => return Err(ParserErrors::UnexpectedTokenKind(self.current_token().clone())),
+            _ => {
+                return Err(ParserErrors::UnexpectedTokenKind(
+                    self.current_token().clone(),
+                ))
+            }
         };
         let mut explicit_type_val = None;
         if has_explicit_type {

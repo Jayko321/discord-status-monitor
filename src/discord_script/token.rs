@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum TokenKind {
-    Eof, 
+    Eof,
 
     True,
     False,
@@ -112,7 +112,12 @@ pub struct Token {
 
 impl Token {
     pub fn new(kind: TokenKind, value: String, line: usize, pos: usize) -> Token {
-        Token { kind, value, line, pos }
+        Token {
+            kind,
+            value,
+            line,
+            pos,
+        }
     }
 }
 

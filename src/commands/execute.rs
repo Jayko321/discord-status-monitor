@@ -52,9 +52,9 @@ pub fn run(options: &[ResolvedOption]) -> String {
                     let arg = String::from(args.first().unwrap());
                     *val += format!("\n Reply from debug_reply! function: {}", arg).as_str();
                 }
-                _ => {},
+                _ => {}
             }
-           None 
+            None
         }));
         inter.execute(*ast.unwrap());
     }

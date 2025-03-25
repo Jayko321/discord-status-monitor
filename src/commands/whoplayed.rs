@@ -58,7 +58,7 @@ pub fn run(options: &[ResolvedOption]) -> String {
 }
 
 pub fn register() -> CreateCommand {
-    // 
+    //
     CreateCommand::new("whoplayed")
         .description("Check who played what")
         .add_option(

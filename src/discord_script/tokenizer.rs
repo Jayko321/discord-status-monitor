@@ -19,10 +19,7 @@ pub struct RegexPattern {
 }
 
 impl RegexPattern {
-    pub fn new(
-        regex: Regex,
-        handler: Box<HandlerType>,
-    ) -> Self {
+    pub fn new(regex: Regex, handler: Box<HandlerType>) -> Self {
         RegexPattern { regex, handler }
     }
 }
@@ -40,10 +37,7 @@ impl Display for TokenizerError {
 
 impl std::error::Error for TokenizerError {}
 
-fn default_handler(
-    kind: TokenKind,
-    value: &'static str,
-) -> Box<HandlerType> {
+fn default_handler(kind: TokenKind, value: &'static str) -> Box<HandlerType> {
     let res = move |_: &Regex, _: &String, line: usize, pos: usize| -> (usize, Option<Token>) {
         return (
             value.len(),
@@ -60,37 +54,70 @@ fn skip_handler(regex: &Regex, remainder: &String, _: usize, _: usize) -> (usize
     (0, None)
 }
 
-fn string_handler(regex: &Regex, remainder: &String, line: usize, pos: usize) -> (usize, Option<Token>) {
+fn string_handler(
+    regex: &Regex,
+    remainder: &String,
+    line: usize,
+    pos: usize,
+) -> (usize, Option<Token>) {
     if let Some(pat) = regex.find(remainder) {
         let str_value = pat.as_str().trim_matches('\"');
         return (
             str_value.len() + 2,
-            Some(Token::new(TokenKind::String, str_value.to_string(), line, pos)),
+            Some(Token::new(
+                TokenKind::String,
+                str_value.to_string(),
+                line,
+                pos,
+            )),
         );
     }
     (0, None)
 }
 
-fn number_handler(regex: &Regex, remainder: &String, line: usize, pos: usize) -> (usize, Option<Token>) {
+fn number_handler(
+    regex: &Regex,
+    remainder: &String,
+    line: usize,
+    pos: usize,
+) -> (usize, Option<Token>) {
     if let Some(pat) = regex.find(remainder) {
         let num_value = pat.as_str();
         return (
             num_value.len(),
-            Some(Token::new(TokenKind::Number, String::from(num_value), line, pos)),
+            Some(Token::new(
+                TokenKind::Number,
+                String::from(num_value),
+                line,
+                pos,
+            )),
         );
     }
     (0, None)
 }
 
-fn symbol_handler(regex: &Regex, remainder: &String, line: usize, pos: usize) -> (usize, Option<Token>) {
+fn symbol_handler(
+    regex: &Regex,
+    remainder: &String,
+    line: usize,
+    pos: usize,
+) -> (usize, Option<Token>) {
     if let Some(pat) = regex.find(remainder) {
         let value = pat.as_str();
         if let Some(keyword) = TokenKind::is_keyword(value) {
-            return (value.len(), Some(Token::new(keyword, value.to_string(), line, pos)));
+            return (
+                value.len(),
+                Some(Token::new(keyword, value.to_string(), line, pos)),
+            );
         } else {
             return (
                 value.len(),
-                Some(Token::new(TokenKind::Identifier, String::from(value), line, pos)),
+                Some(Token::new(
+                    TokenKind::Identifier,
+                    String::from(value),
+                    line,
+                    pos,
+                )),
             );
         }
     }
@@ -181,7 +208,8 @@ impl Lexer {
             for pattern in &mut lexer.patterns {
                 if let Some(location) = pattern.regex.find(&remainder) {
                     if location.start() == 0 {
-                        (advance, token) = (pattern.handler)(&pattern.regex, &remainder, lexer.pos, 0);
+                        (advance, token) =
+                            (pattern.handler)(&pattern.regex, &remainder, lexer.pos, 0);
                         matched = true;
                         break;
                     }
@@ -190,7 +218,10 @@ impl Lexer {
 
             if !matched {
                 let pos = lexer.pos;
-                return Err(TokenizerError::InvalidToken(format!("pos: {pos} source_len: {}", lexer.input.len())));
+                return Err(TokenizerError::InvalidToken(format!(
+                    "pos: {pos} source_len: {}",
+                    lexer.input.len()
+                )));
             }
 
             if let Some(token) = token {
@@ -199,7 +230,9 @@ impl Lexer {
             lexer.pos += advance;
         }
 
-        lexer.tokens.push(Token::new(TokenKind::Eof, "".to_string(), lexer.pos, 0));
+        lexer
+            .tokens
+            .push(Token::new(TokenKind::Eof, "".to_string(), lexer.pos, 0));
 
         Ok(lexer.tokens)
     }

@@ -98,14 +98,13 @@ impl Interpreter<'_> {
         };
         //dumping all variables
         if !self.vars.is_empty() {
-           if let Some(cb) = &mut self.null_expression_out {
-               for vars in self.vars.values() {
-                   for var in vars {
-                       (cb)(&var.value);
-                   }
-                   
-               }
-           }
+            if let Some(cb) = &mut self.null_expression_out {
+                for vars in self.vars.values() {
+                    for var in vars {
+                        (cb)(&var.value);
+                    }
+                }
+            }
         }
         //self.execute_statement(ast.get_description());
     }
@@ -243,31 +242,46 @@ impl Interpreter<'_> {
 
                 Ok(AbstractValue::new(Box::new(res), _type))
             }
-            AbstractExpressionDescription::FunctionCall(identifier_expression, argument_count, arguments) => {
+            AbstractExpressionDescription::FunctionCall(
+                identifier_expression,
+                argument_count,
+                arguments,
+            ) => {
                 let identifier = String::from(self.execute_expression(*identifier_expression)?);
                 let mut args = Vec::new();
                 for arg in arguments {
                     args.push(self.execute_expression(*arg)?);
-                };
-                
+                }
+
                 if let Some(executor) = &mut self.system_function_executor {
                     if identifier.ends_with("!") {
-                        let func = self.system_functions.get_mut(&identifier).ok_or(InterpreterErrors::FunctionNotFound(identifier.clone()))?;
+                        let func = self
+                            .system_functions
+                            .get_mut(&identifier)
+                            .ok_or(InterpreterErrors::FunctionNotFound(identifier.clone()))?;
                         if func.parameters.len() != argument_count {
-                            return Err(Box::new(InterpreterErrors::ArgumentCountMismatch(identifier, func.parameters.len(), argument_count)));
+                            return Err(Box::new(InterpreterErrors::ArgumentCountMismatch(
+                                identifier,
+                                func.parameters.len(),
+                                argument_count,
+                            )));
                         }
-                        
-                        let correct_types = func.parameters.iter().zip(args.iter()).all(|(param, arg)| *param == arg._type);
+
+                        let correct_types = func
+                            .parameters
+                            .iter()
+                            .zip(args.iter())
+                            .all(|(param, arg)| *param == arg._type);
                         if !correct_types {
                             return Err(Box::new(InterpreterErrors::TypeMismatch(identifier)));
                         }
-                        
+
                         (executor)(identifier, args);
-                        return Ok(AbstractValue::new(Box::new(vec!()), Types::Void))
+                        return Ok(AbstractValue::new(Box::new(vec![]), Types::Void));
                     }
                 }
                 Err(Box::new(InterpreterErrors::Unimplemented))
-            },
+            }
         }
     }
 }
