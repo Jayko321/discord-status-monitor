@@ -1,6 +1,5 @@
 #![cfg_attr(not(debug_assertions), deny(warnings))]
 pub mod commands;
-pub mod discord_script;
 pub mod schema;
 pub mod storage;
 
@@ -57,8 +56,11 @@ impl EventHandler for Handler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::Command(command) = interaction {
-            let allowed_ids: Vec<u64> =
-                vec![976552221191835718, 363362909822124052, 467396986279034881];
+            let allowed_ids: Vec<u64> = env::var("DISCORD_ALLOWED_IDS")
+                .unwrap_or_default()
+                .split(',')
+                .filter_map(|s| s.trim().parse().ok())
+                .collect();
             if !allowed_ids.contains(&command.user.id.into()) {
                 return;
             }
@@ -67,7 +69,6 @@ impl EventHandler for Handler {
                 "check" => Some(commands::check::run(&command.data.options())),
                 "filter" => Some(commands::filter::run(&command.data.options())),
                 "whoplayed" => Some(commands::whoplayed::run(&command.data.options())),
-                "execute" => Some(commands::execute::run(&command.data.options())),
                 _ => Some("No command".to_string()),
             };
 
@@ -85,7 +86,12 @@ impl EventHandler for Handler {
 
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
-        let guild_id = GuildId::new(754762976371802203);
+        let guild_id = GuildId::new(
+            env::var("DISCORD_GUILD_ID")
+                .expect("DISCORD_GUILD_ID must be set")
+                .parse()
+                .expect("DISCORD_GUILD_ID must be a valid integer"),
+        );
 
         _ = guild_id
             .set_commands(
@@ -94,7 +100,6 @@ impl EventHandler for Handler {
                     commands::check::register(),
                     commands::filter::register(),
                     commands::whoplayed::register(),
-                    commands::execute::register(),
                 ],
             )
             .await;
