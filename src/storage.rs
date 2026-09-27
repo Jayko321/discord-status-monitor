@@ -1,81 +1,85 @@
 use diesel::prelude::*;
+use diesel::sql_types::{BigInt, Text};
 use dotenv::dotenv;
 use std::env;
 
 pub fn establish_connection() -> Result<SqliteConnection, String> {
     dotenv().ok();
-
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    match SqliteConnection::establish(&database_url) {
-        Ok(conn) => return Ok(conn),
-        Err(err) => return Err(err.to_string()),
-    }
+    SqliteConnection::establish(&database_url).map_err(|err| err.to_string())
 }
 
-pub fn new_log(log: NewLog) -> Result<(), String> {
-    new_logs(&[log])
+pub fn save_presence(
+    user_id: i64,
+    status: &str,
+    activities: Vec<String>,
+    unix_time: i64,
+) -> Result<(), String> {
+    save_presence_on(
+        &mut establish_connection()?,
+        user_id,
+        status,
+        activities,
+        unix_time,
+    )
 }
 
-pub fn new_logs(entries: &[NewLog]) -> Result<(), String> {
-    use crate::schema::logs::dsl::*;
-    match &mut establish_connection() {
-        Ok(conn) => {
-            let res = diesel::insert_into(logs).values(entries).execute(conn);
+fn save_presence_on(
+    conn: &mut SqliteConnection,
+    user_id: i64,
+    status: &str,
+    mut activities: Vec<String>,
+    unix_time: i64,
+) -> Result<(), String> {
+    activities.sort_unstable();
+    activities.dedup();
+    let activities = serenity::json::to_string(&activities).map_err(|err| err.to_string())?;
 
-            if let Some(err) = res.err() {
-                return Err(err.to_string());
-            }
-
-            Ok(())
-        }
-        Err(err) => return Err(err.to_string()),
-    }
+    diesel::sql_query(
+        "INSERT INTO presences (user_id, status, activities, unix_time)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET
+             status = excluded.status,
+             activities = excluded.activities,
+             unix_time = excluded.unix_time
+         WHERE presences.status <> excluded.status
+            OR presences.activities <> excluded.activities",
+    )
+    .bind::<BigInt, _>(user_id)
+    .bind::<Text, _>(status)
+    .bind::<Text, _>(activities)
+    .bind::<BigInt, _>(unix_time)
+    .execute(conn)
+    .map(|_| ())
+    .map_err(|err| err.to_string())
 }
 
-pub fn get_log(_id: i32) -> Result<Log, String> {
-    use crate::schema::logs::dsl::*;
-    match &mut establish_connection() {
-        Ok(conn) => {
-            let results = logs
-                .filter(id.eq(_id))
-                .limit(1)
-                .select(Log::as_select())
-                .load(conn);
-
-            match results {
-                Ok(log) => {
-                    if log.len() > 0 {
-                        let res: Log = log[0].clone();
-                        return Ok(res);
-                    } else {
-                        return Err("Not found".to_string());
-                    }
-                }
-                Err(err) => return Err(err.to_string()),
-            }
-        }
-        Err(err) => return Err(err.to_string()),
-    }
-
-    // Err("Unknown error".to_string())
+pub fn get_presence(id: i64) -> Result<Option<PresenceSnapshot>, String> {
+    use crate::schema::presences::dsl::*;
+    presences
+        .find(id)
+        .select(PresenceSnapshot::as_select())
+        .first(&mut establish_connection()?)
+        .optional()
+        .map_err(|err| err.to_string())
 }
 
-#[derive(Queryable, Selectable, Clone, Debug)]
-#[diesel(table_name = crate::schema::logs)]
+#[derive(Queryable, Selectable, Debug)]
+#[diesel(table_name = crate::schema::presences)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-pub struct Log {
-    pub id: i32,
+pub struct PresenceSnapshot {
     pub user_id: i64,
     pub status: String,
-    pub activity: String,
+    pub activities: String,
     pub unix_time: i64,
 }
 
-#[derive(Insertable)]
-#[diesel(table_name = crate::schema::logs)]
-pub struct NewLog {
-    pub user_id: i64,
-    pub status: String,
-    pub activity: String,
-    pub unix_time: i64,
+impl PresenceSnapshot {
+    pub fn activity_names(&self) -> Result<Vec<String>, String> {
+        serenity::json::from_str(&self.activities).map_err(|err| err.to_string())
+    }
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/presence.rs"]
+mod tests;

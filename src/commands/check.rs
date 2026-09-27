@@ -1,71 +1,52 @@
-use diesel::prelude::*;
 use serenity::builder::{CreateCommand, CreateCommandOption};
 use serenity::model::application::{CommandOptionType, ResolvedOption, ResolvedValue};
 
-use crate::storage::{establish_connection, Log};
+use crate::storage::get_presence;
 
 pub fn run(options: &[ResolvedOption]) -> String {
-    let mut res_string;
-    let mut _user_id: i64;
-    let mut log_limit: Option<i64> = None;
-    if let Some(ResolvedOption {
+    let Some(ResolvedOption {
         value: ResolvedValue::User(user, _),
         ..
     }) = options.first()
-    {
-        res_string = format!("{}'s id is {}", user.tag(), user.id);
-        _user_id = user.id.into();
-    } else {
+    else {
         return "Please provide a valid user".to_string();
-    }
-    if let Some(ResolvedOption {
-        value: ResolvedValue::Integer(limit),
-        ..
-    }) = options.get(1)
-    {
-        res_string = format!(
-            "{} \n limit option was found it is set to {}",
-            res_string, limit
-        );
-        log_limit = Some(limit.clone());
-    }
+    };
+    let limit = match options.get(1) {
+        Some(ResolvedOption {
+            value: ResolvedValue::Integer(value),
+            ..
+        }) => (*value).max(1) as usize,
+        _ => 1,
+    };
 
-    use crate::schema::logs::dsl::*;
-    match &mut establish_connection() {
-        Ok(conn) => {
-            let limit = log_limit.unwrap_or(1) as i64;
-            let results = logs
-                .filter(user_id.eq(_user_id))
-                .limit(limit)
-                .select(Log::as_select())
-                .order(id.desc())
-                .load(conn);
-
-            match results {
-                Ok(records) => {
-                    res_string.clear();
-                    for record in records {
-                        res_string = format!(
-                            "{}\nStatus: {}    Activity: {}   Time: <t:{}:R>   ",
-                            res_string, record.status, record.activity, record.unix_time
-                        );
-                    }
-                    if res_string.is_empty() {
-                        res_string += "Nothing was recorded in a database";
-                    }
-                }
-                Err(err) => return err.to_string(),
-            }
-        }
-        Err(err) => return err.to_string(),
+    let snapshot = match get_presence(user.id.into()) {
+        Ok(Some(snapshot)) => snapshot,
+        Ok(None) => return "Nothing was recorded in a database".to_string(),
+        Err(err) => return err,
+    };
+    let mut activities = match snapshot.activity_names() {
+        Ok(activities) => activities,
+        Err(err) => return err,
+    };
+    if activities.is_empty() {
+        activities.push(String::new());
     }
-
-    return res_string;
+    activities
+        .into_iter()
+        .take(limit)
+        .map(|activity| {
+            format!(
+                "Status: {}    Activity: {}   Time: <t:{}:R>",
+                snapshot.status, activity, snapshot.unix_time
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 pub fn register() -> CreateCommand {
     CreateCommand::new("check")
-        .description("Check most recent user activity")
+        .description("Check a user's last observed status and activities")
         .add_option(
             CreateCommandOption::new(CommandOptionType::User, "id", "The user to lookup")
                 .required(true),
@@ -74,7 +55,7 @@ pub fn register() -> CreateCommand {
             CreateCommandOption::new(
                 CommandOptionType::Integer,
                 "limit",
-                "How much data to fetch",
+                "Maximum activities to show",
             )
             .min_int_value(1),
         )

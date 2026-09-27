@@ -2,66 +2,67 @@ use diesel::prelude::*;
 use serenity::builder::{CreateCommand, CreateCommandOption};
 use serenity::model::application::{CommandOptionType, ResolvedOption, ResolvedValue};
 
-use crate::storage::establish_connection;
+use crate::storage::{establish_connection, PresenceSnapshot};
 
 fn recent_players(
     conn: &mut SqliteConnection,
     activity_name: &str,
     limit: i64,
-) -> QueryResult<Vec<i64>> {
-    use crate::schema::logs::dsl::*;
-    logs.filter(activity.eq(activity_name))
-        .group_by(user_id)
-        .order(diesel::dsl::max(id).desc())
-        .limit(limit)
-        .select(user_id)
-        .load(conn)
+) -> Result<Vec<i64>, String> {
+    use crate::schema::presences::dsl::*;
+    // ponytail: scans one row per user; normalize and index activities if this becomes slow.
+    let snapshots = presences
+        .order((unix_time.desc(), user_id.desc()))
+        .select(PresenceSnapshot::as_select())
+        .load::<PresenceSnapshot>(conn)
+        .map_err(|err| err.to_string())?;
+    let mut players = Vec::new();
+    for snapshot in snapshots {
+        if snapshot
+            .activity_names()?
+            .iter()
+            .any(|activity| activity == activity_name)
+        {
+            players.push(snapshot.user_id);
+            if players.len() >= limit.max(1) as usize {
+                break;
+            }
+        }
+    }
+    Ok(players)
 }
 
 pub fn run(options: &[ResolvedOption]) -> String {
-    let mut res_string = String::new();
-    let mut log_limit: Option<i64> = None;
-    let mut activity_name: String = String::new();
-    if let Some(ResolvedOption {
-        value: ResolvedValue::Integer(limit),
+    let Some(ResolvedOption {
+        value: ResolvedValue::String(activity_name),
         ..
-    }) = options.get(1)
-    {
-        log_limit = Some(limit.clone());
+    }) = options.first()
+    else {
+        return "Please provide a valid activity".to_string();
+    };
+    let limit = match options.get(1) {
+        Some(ResolvedOption {
+            value: ResolvedValue::Integer(value),
+            ..
+        }) => *value,
+        _ => 1,
+    };
+    let mut conn = match establish_connection() {
+        Ok(conn) => conn,
+        Err(err) => return err,
+    };
+    let players = match recent_players(&mut conn, activity_name, limit) {
+        Ok(players) => players,
+        Err(err) => return err,
+    };
+    if players.is_empty() {
+        return "Nothing was recorded in a database".to_string();
     }
-    if let Some(ResolvedOption {
-        value: ResolvedValue::String(_activity),
-        ..
-    }) = options.get(0)
-    {
-        activity_name = String::from(*_activity);
-    }
-
-    match &mut establish_connection() {
-        Ok(conn) => {
-            let limit = log_limit.unwrap_or(1) as i64;
-            let results = recent_players(conn, &activity_name, limit);
-
-            match results {
-                Ok(records) => {
-                    res_string.clear();
-
-                    res_string = records
-                        .iter()
-                        .map(|x| format!("<@{}>", x.to_string()))
-                        .collect::<Vec<String>>()
-                        .join("\n");
-                    if res_string.is_empty() {
-                        res_string += "Nothing was recorded in a database";
-                    }
-                }
-                Err(err) => return err.to_string(),
-            }
-        }
-        Err(err) => return err.to_string(),
-    }
-
-    return res_string;
+    players
+        .iter()
+        .map(|user_id| format!("<@{}>", user_id))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[cfg(test)]
@@ -69,20 +70,15 @@ pub fn run(options: &[ResolvedOption]) -> String {
 mod tests;
 
 pub fn register() -> CreateCommand {
-    //
     CreateCommand::new("whoplayed")
-        .description("Check who played what")
+        .description("Check whose last observed activity matches")
         .add_option(
             CreateCommandOption::new(CommandOptionType::String, "activity", "Activity type")
                 .required(true),
         )
         .add_option(
-            CreateCommandOption::new(
-                CommandOptionType::Integer,
-                "limit",
-                "How much data to fetch",
-            )
-            .min_int_value(1)
-            .max_int_value(50),
+            CreateCommandOption::new(CommandOptionType::Integer, "limit", "Maximum users to show")
+                .min_int_value(1)
+                .max_int_value(50),
         )
 }

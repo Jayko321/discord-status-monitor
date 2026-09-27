@@ -32,18 +32,19 @@ impl EventHandler for Handler {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
-        let logs = logs_for_activities(
+        let activities = presence
+            .activities
+            .into_iter()
+            .map(|activity| activity.name)
+            .collect();
+        save_presence(
             presence.user.id.into(),
             presence.status.name(),
-            presence
-                .activities
-                .into_iter()
-                .map(|activity| activity.name)
-                .collect(),
+            activities,
             unix_time,
-        );
-        new_logs(&logs).unwrap_or_else(|err| {
-            println!("Error while inserting into a database: {}", err);
+        )
+        .unwrap_or_else(|err| {
+            println!("Error while saving presence: {}", err);
         });
     }
 
@@ -100,28 +101,6 @@ impl EventHandler for Handler {
     }
 }
 
-fn logs_for_activities(
-    user_id: i64,
-    status: &str,
-    activities: Vec<String>,
-    unix_time: i64,
-) -> Vec<NewLog> {
-    let activities = if activities.is_empty() {
-        vec![String::new()]
-    } else {
-        activities
-    };
-    activities
-        .into_iter()
-        .map(|activity| NewLog {
-            user_id,
-            status: status.to_string(),
-            activity,
-            unix_time,
-        })
-        .collect()
-}
-
 #[tokio::main]
 async fn main() {
     //assert!(false, "TODO: write tests for a Lexer");
@@ -143,7 +122,3 @@ async fn main() {
         println!("Client error: {why:?}");
     }
 }
-
-#[cfg(test)]
-#[path = "../tests/unit/presence.rs"]
-mod presence_tests;

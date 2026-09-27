@@ -1,7 +1,6 @@
-CREATE TABLE logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE presences (
+    user_id INTEGER PRIMARY KEY,
     status TEXT NOT NULL,
-    activity TEXT NOT NULL,
-    user_id BIGINT NOT NULL,
-    unix_time BIGINT NOT NULL
+    activities TEXT NOT NULL,
+    unix_time INTEGER NOT NULL
 );

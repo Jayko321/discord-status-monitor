@@ -1,16 +1,16 @@
 # Discord Status Monitor
 
-A Rust Discord bot that monitors and logs member presence/status changes in a guild. Built with [Serenity](https://github.com/serenity-rs/serenity) and [Diesel](https://diesel.rs/) (SQLite).
+A Rust Discord bot that stores each member's last observed presence in a guild. Built with [Serenity](https://github.com/serenity-rs/serenity) and [Diesel](https://diesel.rs/) (SQLite).
 
-When a member's status (online/idle/dnd/offline) or activity (game/app name) changes, the bot records the event to a local SQLite database. Slash commands let you query the logged data.
+The bot stores one row per user in a local SQLite database. Repeated updates with the same status and activities are skipped. After a restart, saved states may be stale until Discord sends new presence updates.
 
 ## Commands
 
 | Command | Description |
 |---|---|
-| `/check <user> [limit]` | Show a user's most recent status/activity logs |
-| `/filter <user> <activity> [limit]` | Show a user's logs filtered by activity name |
-| `/whoplayed <activity> [limit]` | List distinct users who played a specific activity |
+| `/check <user> [limit]` | Show a user's last observed status and up to `limit` activities (default 1) |
+| `/filter <user> <activity> [limit]` | Show the user's last observed status if the activity matches; `limit` is retained but at most one result exists |
+| `/whoplayed <activity> [limit]` | List users whose last observed activity set contains the name |
 
 ## Setup
 
@@ -43,15 +43,14 @@ DISCORD_ALLOWED_IDS=user_id_1,user_id_2,user_id_3
 diesel migration run
 ```
 
-The `logs` table has the following schema:
+The `presences` table has the following schema:
 
 | Column | Type | Description |
 |---|---|---|
-| `id` | Integer | Primary key |
-| `user_id` | BigInt | Discord user ID |
+| `user_id` | Integer | Discord user ID and primary key |
 | `status` | Text | Status (online, idle, dnd, offline) |
-| `activity` | Text | Activity / game name |
-| `unix_time` | BigInt | Unix timestamp of the event |
+| `activities` | Text | JSON array of activity names |
+| `unix_time` | Integer | Unix timestamp of the last observed change |
 
 ### Run
 
