@@ -13,10 +13,14 @@ pub fn establish_connection() -> Result<SqliteConnection, String> {
 }
 
 pub fn new_log(log: NewLog) -> Result<(), String> {
+    new_logs(&[log])
+}
+
+pub fn new_logs(entries: &[NewLog]) -> Result<(), String> {
     use crate::schema::logs::dsl::*;
     match &mut establish_connection() {
         Ok(conn) => {
-            let res = diesel::insert_into(logs).values(log).execute(conn);
+            let res = diesel::insert_into(logs).values(entries).execute(conn);
 
             if let Some(err) = res.err() {
                 return Err(err.to_string());

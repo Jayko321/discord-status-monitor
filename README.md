@@ -40,7 +40,6 @@ DISCORD_ALLOWED_IDS=user_id_1,user_id_2,user_id_3
 ### Database Setup
 
 ```sh
-diesel migration generate create_logs
 diesel migration run
 ```
 

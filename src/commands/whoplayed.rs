@@ -4,6 +4,20 @@ use serenity::model::application::{CommandOptionType, ResolvedOption, ResolvedVa
 
 use crate::storage::establish_connection;
 
+fn recent_players(
+    conn: &mut SqliteConnection,
+    activity_name: &str,
+    limit: i64,
+) -> QueryResult<Vec<i64>> {
+    use crate::schema::logs::dsl::*;
+    logs.filter(activity.eq(activity_name))
+        .group_by(user_id)
+        .order(diesel::dsl::max(id).desc())
+        .limit(limit)
+        .select(user_id)
+        .load(conn)
+}
+
 pub fn run(options: &[ResolvedOption]) -> String {
     let mut res_string = String::new();
     let mut log_limit: Option<i64> = None;
@@ -23,17 +37,10 @@ pub fn run(options: &[ResolvedOption]) -> String {
         activity_name = String::from(*_activity);
     }
 
-    use crate::schema::logs::dsl::*;
     match &mut establish_connection() {
         Ok(conn) => {
             let limit = log_limit.unwrap_or(1) as i64;
-            let results = logs
-                .filter(activity.eq(activity_name))
-                .limit(limit)
-                .select(user_id)
-                .distinct()
-                .order(id.desc())
-                .load::<i64>(conn);
+            let results = recent_players(conn, &activity_name, limit);
 
             match results {
                 Ok(records) => {
@@ -56,6 +63,10 @@ pub fn run(options: &[ResolvedOption]) -> String {
 
     return res_string;
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/whoplayed.rs"]
+mod tests;
 
 pub fn register() -> CreateCommand {
     //

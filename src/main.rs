@@ -24,34 +24,27 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn presence_update(&self, _ctx: Context, presence: Presence) {
-        let changed = presence.status.name();
-        let activities = presence.activities;
-        if let Some(guild) = presence.guild_id {
-            if let Ok(member) = guild.member(_ctx.clone(), presence.user.id).await {
-                if member.user.bot {
-                    return;
-                }
-
-                let mut activity_str: String = "".to_string();
-                for activity in activities {
-                    activity_str = activity.name;
-                }
-
-                let unix_time = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs() as i64;
-                new_log(NewLog {
-                    user_id: presence.user.id.into(),
-                    status: changed.to_string(),
-                    activity: activity_str,
-                    unix_time,
-                })
-                .unwrap_or_else(|err| {
-                    println!("Error while inserting into a database: {}", err);
-                });
-            }
+        if presence.user.bot == Some(true) {
+            return;
         }
+
+        let unix_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        let logs = logs_for_activities(
+            presence.user.id.into(),
+            presence.status.name(),
+            presence
+                .activities
+                .into_iter()
+                .map(|activity| activity.name)
+                .collect(),
+            unix_time,
+        );
+        new_logs(&logs).unwrap_or_else(|err| {
+            println!("Error while inserting into a database: {}", err);
+        });
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
@@ -107,13 +100,34 @@ impl EventHandler for Handler {
     }
 }
 
+fn logs_for_activities(
+    user_id: i64,
+    status: &str,
+    activities: Vec<String>,
+    unix_time: i64,
+) -> Vec<NewLog> {
+    let activities = if activities.is_empty() {
+        vec![String::new()]
+    } else {
+        activities
+    };
+    activities
+        .into_iter()
+        .map(|activity| NewLog {
+            user_id,
+            status: status.to_string(),
+            activity,
+            unix_time,
+        })
+        .collect()
+}
+
 #[tokio::main]
 async fn main() {
     //assert!(false, "TODO: write tests for a Lexer");
     dotenv().ok();
     // Login with a bot token from the environment
     let token = env::var("DISCORD_TOKEN").expect("Not found");
-    println!("{}", token);
 
     // Set gateway intents, which decides what events the bot will be notified about
     let intents = GatewayIntents::GUILD_PRESENCES;
@@ -129,3 +143,7 @@ async fn main() {
         println!("Client error: {why:?}");
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/presence.rs"]
+mod presence_tests;
